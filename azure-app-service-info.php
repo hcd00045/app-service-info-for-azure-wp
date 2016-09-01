@@ -1,7 +1,7 @@
 <?php 
 /*
 Plugin Name: Azure App Service Info
-Plugin URI:  TBD
+Plugin URI:  https://github.com/hcd00045/azure-app-service-info-wp
 Description: Adds a Microsoft Azure App Service deployment identifier to the footer of the admin section. 
 Version:     0.1
 Author:      Haig Didizian
