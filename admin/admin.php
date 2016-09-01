@@ -1,0 +1,152 @@
+<?php
+/*
+  Copyright 2016 Haig Didizian
+
+  This file is part of Azure App Service Info.
+
+  Azure App Service Info is free software: you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 2 of the License, or
+  (at your option) any later version.
+
+  Azure App Service Info is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with Azure App Service Info.  If not, see <http://www.gnu.org/licenses/>.
+*/  
+  
+/*
+ * For reference, the status.xml file loads the following information:
+ *
+ * SimpleXMLElement Object
+ * (
+ *     [id] => 640de0c121f432597706ba3c50c132be211a1234
+ *     [author] => John Doe
+ *     [deployer] => Bitbucket
+ *     [authorEmail] => john@example.com
+ *     [message] => my commit message
+ * 
+ *     [progress] => SimpleXMLElement Object
+ *         (
+ *         )
+ * 
+ *     [status] => Success
+ *     [statusText] => SimpleXMLElement Object
+ *         (
+ *         )
+ * 
+ *     [lastSuccessEndTime] => 2016-09-01T15:15:56.7740733Z
+ *     [receivedTime] => 2016-09-01T15:15:47.9334918Z
+ *     [startTime] => 2016-09-01T15:15:48.0903974Z
+ *     [endTime] => 2016-09-01T15:15:56.7740733Z
+ *     [complete] => True
+ *     [is_temp] => False
+ *     [is_readonly] => False
+ * )
+**/
+
+require(dirname(__FILE__) . '/../classes/app-service-deployment-info.php');
+
+define("AASI_USE_CACHE", false);
+define("AASI_ACTIVE_DEPLOYMENT_DIR", "D:\home\site\deployments");
+define("AASI_ACTIVE_DEPLOYMENT_FILE_NAME", "active");
+define("AASI_DEPLOYMENT_INFO_CACHE_KEY", "AASI_DEPLOYMENT_INFO");
+
+// checks a server variable to make sure we're running 
+// on Azure App Service
+function aasi_is_azure() { 
+  return array_key_exists('APP_POOL_ID', $_SERVER);
+}
+
+// azure app service has wincache installed
+// use that to cache the deployment info, if enabled
+function aasi_has_wincache() {
+  return function_exists('wincache_ucache_exists');
+}
+
+// retrieves the XML deployment information for the current 
+// deployment from cache, or disk
+// NOTE: this assumes the cache is cleared on server restart --
+// it is not cleared explicitly
+function assi_get_deployment_info() {
+  if ( AASI_USE_CACHE && aasi_has_wincache() && wincache_ucache_exists(AASI_DEPLOYMENT_INFO_CACHE_KEY) ) {
+    $info = wincache_ucache_get(AASI_DEPLOYMENT_INFO_CACHE_KEY);
+    
+    if ($info != NULL) {  
+      return $info;
+    }
+  }
+  
+  $deployment_id = trim(file_get_contents(AASI_ACTIVE_DEPLOYMENT_DIR . "/" . AASI_ACTIVE_DEPLOYMENT_FILE_NAME));
+  
+  $xml = simplexml_load_file(AASI_ACTIVE_DEPLOYMENT_DIR . "/$deployment_id/status.xml");
+  
+  // convert to a simple object (the XML object can't be serialized to wincache)
+  $obj = new AppServiceDeploymentInfo($xml);
+  
+  if ( AASI_USE_CACHE && aasi_has_wincache() ) { 
+    wincache_ucache_set(AASI_DEPLOYMENT_INFO_CACHE_KEY, $obj);
+  }
+  
+  return $obj;
+}
+
+// gets deployment info from azure app service, or
+// an err message if this is not azure app service
+function aasi_get_deployment_info() {
+  if ( aasi_is_azure() ) { 
+    return assi_get_deployment_info();
+  } else {
+    return "Unknown";
+  }  
+}
+
+// append our deployment information into the footer
+function aasi_admin_footer_function($str) {
+	$info = aasi_get_deployment_info();
+  
+	if ( is_a($info, 'AppServiceDeploymentInfo' ) ) { 
+    $time_str = strftime('%c %Z', $info->endTime);
+    
+    $info_html = <<<INFO
+      <div id="aasi-more-info-box" style="display: none"> 
+        <h4>Azure App Service Deployment Info</h4>
+        <dl>
+          <dt>Deployment Data</dt>
+          <dd>$time_str</dd>
+          <dt>Deployment ID</dt>
+          <dd>{$info->id}</dd>
+          <dt>Author</dt>
+          <dd>{$info->author}</dd>
+          <dt>Message</dt>
+          <dd>{$info->message}</dd>
+        </dl>
+      </div>
+      $time_str
+      <img id="aasi-more-info-icon" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABmJLR0QAAAAAAAD5Q7t/AAAACXBIWXMAARCQAAEQkAGJrNK4AAAAB3RJTUUH4AkBEwgSSjxSXwAAASlJREFUOMuFk7FKA0EQhr/bysPOWlJrFxhBLEzhC1jmChHsLWxiJ0J8AR/DKwWtBVNo80NAfIB4pbXmwMZmTtZlLxlYFuaff3Z2Zv6CxMwMSZjZBjB091xS22GxhZjoNjazBbAEXvws3TdOYimSV5+BQ1bbTNKo4xRRBX3kG+AM2E6TABRezhi4y5Cnkq7NbB94TbAKqLsvLIBBJsE3MPEK9hKskTQovNvLDPkdeACOgZ2efpQhGlVsX8ATcCVpd0VDh6EH2ATOJf2smQgBmPdgb96fkxX8eZDUAh8Z8N7vox5yI6kNPsbLTMCn3wIeM/jEzNYu0i2wBZzmtvFPC76WI2CWBF70kTs9BKDTQZekAprcn4Eq1sE/NUYyrSUNgBI48FO6r05i+QWQNnlEjJt73wAAAABJRU5ErkJggg=="/>
+INFO;
+	} else {
+	  // if not XML, assume string or something 
+	  // that casts to a string
+	  $info_html = $info;
+	}
+	
+	$new_str = $str . <<<HTML
+	  <div class="aasi-footer">
+	    <strong>App Service Deployment:</strong> 
+      $info_html 
+	  </div>
+HTML;
+
+  wp_enqueue_style('aasi-style', '/wp-content/plugins/azure-app-service-info/css/style.css');
+  wp_enqueue_script('aasi-script', '/wp-content/plugins/azure-app-service-info/js/main.js');
+
+  return $new_str;
+}
+
+add_filter('admin_footer_text', 'aasi_admin_footer_function');
+
+?>
