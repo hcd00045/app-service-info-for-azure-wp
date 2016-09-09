@@ -141,8 +141,8 @@ INFO;
 	  </div>
 HTML;
 
-  wp_enqueue_style('appsvc-style', '/wp-content/plugins/azure-app-service-info/css/style.css');
-  wp_enqueue_script('appsvc-script', '/wp-content/plugins/azure-app-service-info/js/main.js');
+  wp_enqueue_style('appsvc-style', '/wp-content/plugins/app-service-info-azure/css/style.css');
+  wp_enqueue_script('appsvc-script', '/wp-content/plugins/app-service-info-azure/js/main.js');
 
   return $new_str;
 }
