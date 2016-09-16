@@ -158,8 +158,8 @@ INFO;
 	  </div>
 HTML;
 
-  wp_enqueue_style('appsvc-style', plugins_url('css/style.css', __FILE__));
-  wp_enqueue_script('appsvc-script', plugins_url('js/main.js', __FILE__));
+  wp_enqueue_style('appsvc-style', plugins_url('../css/style.css', __FILE__));
+  wp_enqueue_script('appsvc-script', plugins_url('../js/main.js', __FILE__));
 
   return $new_str;
 }
