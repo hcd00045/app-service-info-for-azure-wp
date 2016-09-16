@@ -50,10 +50,27 @@
 
 require(dirname(__FILE__) . '/../classes/app-service-deployment-info.php');
 
-define("APPSVC_USE_CACHE", false);
-define("APPSVC_ACTIVE_DEPLOYMENT_DIR", "D:\home\site\deployments");
-define("APPSVC_ACTIVE_DEPLOYMENT_FILE_NAME", "active");
-define("APPSVC_DEPLOYMENT_INFO_CACHE_KEY", "APPSVC_DEPLOYMENT_INFO");
+// if enabled, the plugin attempts to use wincache (installed by default in
+// App Service) to cache the deployment information so that each admin page load
+// doesn't trigger an additional file system read. Use with care -- it is possible
+// that a deployment won't reset the cache, which would defeat the purpose of the plugin.
+// That's why the default, for now, is to turn caching off.
+if ( ! defined( 'APPSVC_USE_CACHE' ) ) {
+    define("APPSVC_USE_CACHE", false);
+}
+if ( ! defined( 'APPSVC_DEPLOYMENT_INFO' ) ) {
+    define("APPSVC_DEPLOYMENT_INFO_CACHE_KEY", "APPSVC_DEPLOYMENT_INFO");
+}
+
+// NOTE: the following two values are specific to the Azure App Service environment
+// and can not (to my knowledge) be overridden by the end-user. Modify with care.
+if ( ! defined( 'APPSVC_ACTIVE_DEPLOYMENT_DIR' ) ) {
+    define("APPSVC_ACTIVE_DEPLOYMENT_DIR", "D:\home\site\deployments");
+}
+
+if ( ! defined( 'APPSVC_ACTIVE_DEPLOYMENT_FILE_NAME' ) ) {
+    define("APPSVC_ACTIVE_DEPLOYMENT_FILE_NAME", "active");
+}
 
 // checks a server variable to make sure we're running 
 // on Azure App Service
@@ -141,8 +158,8 @@ INFO;
 	  </div>
 HTML;
 
-  wp_enqueue_style('appsvc-style', '/wp-content/plugins/app-service-info-azure/css/style.css');
-  wp_enqueue_script('appsvc-script', '/wp-content/plugins/app-service-info-azure/js/main.js');
+  wp_enqueue_style('appsvc-style', plugins_url('css/style.css', __FILE__));
+  wp_enqueue_script('appsvc-script', plugins_url('js/main.js', __FILE__));
 
   return $new_str;
 }
